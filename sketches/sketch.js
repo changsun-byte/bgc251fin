@@ -2,98 +2,100 @@ const { Responsive } = P5Template;
 
 let video;
 const boxSize = 10;
-let oldPixels = null;
 let boxes = [];
 const maxLineDist = 140;
+
+let flashX = 0;
+let flashY = 0;
+let flashFrame = 0;
 
 function setup() {
   new Responsive().createResponsiveCanvas(1440, 1090, 'contain', true);
 
   video = createCapture(VIDEO);
   video.size(floor(width / boxSize), floor(height / boxSize));
+  video.hide();
 }
 
 function draw() {
   background(0, 20);
-
   video.loadPixels();
   boxes = [];
 
+  let maxBright = 0;
+  let maxX = 0;
+  let maxY = 0;
+
   for (let y = 0; y < video.height; y++) {
     for (let x = 0; x < video.width; x++) {
-      const i = (x + y * video.width) * 4;
+      let i = (x + y * video.width) * 4;
+      let r = video.pixels[i];
+      let g = video.pixels[i + 1];
+      let b = video.pixels[i + 2];
+      let bright = (r + g + b) / 3;
 
-      const r = video.pixels[i];
-      const g = video.pixels[i + 1];
-      const b = video.pixels[i + 2];
-      const bright = (r + g + b) / 3;
-
-      if (oldPixels) {
-        const pr = oldPixels[i];
-        const pg = oldPixels[i + 1];
-        const pb = oldPixels[i + 2];
-        const oldBright = (pr + pg + pb) / 3;
-
-        const diff = abs(bright - oldBright);
-
-        if (diff > 20) {
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = x + dx;
-              const ny = y + dy;
-
-              if (
-                nx >= 0 &&
-                nx < video.width &&
-                ny >= 0 &&
-                ny < video.height &&
-                nx * boxSize + boxSize <= width &&
-                ny * boxSize + boxSize <= height
-              ) {
-                const colorArray = [random(255), random(255), random(255)];
-                boxes.push({
-                  x: nx * boxSize,
-                  y: ny * boxSize,
-                  color: colorArray,
-                });
-              }
-            }
-          }
-        }
+      if (bright > maxBright) {
+        maxBright = bright;
+        maxX = x;
+        maxY = y;
       }
     }
   }
 
-  oldPixels = video.pixels.slice();
-
-  // 네모 그리기
-  strokeWeight(10);
-  for (let i = 0; i < boxes.length; i++) {
-    const b = boxes[i];
-    noFill();
-    stroke(b.color[0], b.color[1], b.color[2], 150);
-    rect(b.x, b.y, boxSize, boxSize);
+  if (maxBright > 80) {
+    flashX = maxX * boxSize;
+    flashY = maxY * boxSize;
+    flashFrame = frameCount;
   }
 
-  // 선 연결
-  const maxConnections = 100;
-  for (let n = 0; n < maxConnections; n++) {
-    const i = floor(random(boxes.length));
-    const j = floor(random(boxes.length));
-    if (i !== j) {
-      const dx = boxes[i].x - boxes[j].x;
-      const dy = boxes[i].y - boxes[j].y;
-      const distSq = dx * dx + dy * dy;
+  if (frameCount - flashFrame < 60) {
+    fill(255, 100, 0, 180);
+    noStroke();
+    ellipse(flashX, flashY, boxSize * 12);
+  }
 
-      if (distSq < maxLineDist * maxLineDist) {
-        stroke(random(255), random(255), random(255), 100);
-        strokeWeight(8);
-        line(
-          boxes[i].x + boxSize / 2,
-          boxes[i].y + boxSize / 2,
-          boxes[j].x + boxSize / 2,
-          boxes[j].y + boxSize / 2
-        );
+  for (let y = 0; y < video.height; y++) {
+    for (let x = 0; x < video.width; x++) {
+      if (random() < 0.005) {
+        let boxX = x * boxSize;
+        let boxY = y * boxSize;
+        let c1 = random(255);
+        let c2 = random(255);
+        let c3 = random(255);
+        boxes.push([boxX, boxY, c1, c2, c3]);
+      }
+    }
+  }
+
+  strokeWeight(10);
+  for (let i = 0; i < boxes.length; i++) {
+    let bx = boxes[i][0];
+    let by = boxes[i][1];
+    let cr = boxes[i][2];
+    let cg = boxes[i][3];
+    let cb = boxes[i][4];
+    noFill();
+    stroke(cr, cg, cb, 150);
+    rect(bx, by, boxSize, boxSize);
+  }
+
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = 0; j < boxes.length; j++) {
+      if (i !== j) {
+        let dx = boxes[i][0] - boxes[j][0];
+        let dy = boxes[i][1] - boxes[j][1];
+        let d = sqrt(dx * dx + dy * dy);
+
+        if (d < maxLineDist) {
+          stroke(random(255), random(255), random(255), 100);
+          strokeWeight(8);
+          line(
+            boxes[i][0] + boxSize / 2,
+            boxes[i][1] + boxSize / 2,
+            boxes[j][0] + boxSize / 2,
+            boxes[j][1] + boxSize / 2
+          );
+        }
       }
     }
   }
